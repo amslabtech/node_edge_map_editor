@@ -50,8 +50,8 @@
   <!--   <doc_depend>doxygen</doc_depend> -->
   <buildtool_depend>catkin</buildtool_depend>
   <depend>rospy</depend>
-  <depend>amsl_navigation_msgs</depend>
-  <depend>geometry_msgs</depend>
+  <exec_depend>pcl_ros</exec_depend>
+  <exec_depend>amsl_navigation_managers</exec_depend>
 
 
   <!-- The export tag contains other, unspecified, tags -->
