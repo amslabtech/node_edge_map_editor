@@ -1,23 +1,19 @@
 <?xml version="2.0"?>
 <launch>
-    <arg name="node_edge_map_file" default="$(find node_edge_map_editor)/sample/map/rwrc21_kakunin_map.yaml"/>
-    <!-- <arg name="output_file" default="$(find node_edge_map_editor)/maps/sample_map.yaml"/> -->
-    <arg name="pcd_file" default="/home/amsl/pcd/map_tc.pcd"/>
-    <arg name="rviz_config" default="$(find node_edge_map_editor)/rviz/map_editor.rviz"/>
-    <arg name="interval" default="10"/>
+    <arg name="node_edge_map_file" default="$(find node_edge_map_editor)/sample/sample_map.yaml"/>
+    <arg name="pcd_file" default="$(env HOME)/pcd/~.pcd"/>
 
-    <node name="rviz" type="rviz" pkg="rviz" args="-d $(arg rviz_config)"/>
-    <node name="pcd_pub" type="pcd_to_pointcloud" pkg="pcl_ros" args="$(arg pcd_file) $(arg interval)">
-        <param name="frame_id" value="map"/>
+    <node pkg="node_edge_map_editor" type="map_editor.py" name="map_editor" output="screen">
+        <param name="MAP_PATH" value="$(arg node_edge_map_file)"/>
     </node>
 
     <node pkg="amsl_navigation_managers" type="node_edge_map_manager.py" name="node_edge_map_manager" ns="navigation_managers">
         <param name="MAP_PATH" value="$(arg node_edge_map_file)"/>
         <param name="HZ" value="1"/>
     </node>
-
-    <node pkg="node_edge_map_editor" type="map_editor.py" name="map_editor" output="screen">
-        <param name="MAP_PATH" value="$(arg node_edge_map_file)"/>
+    <node pkg="pcl_ros" type="pcd_to_pointcloud" name="pcd_to_pointcloud" args="$(arg pcd_file)">
+        <param name="frame_id" value="map"/>
+        <param name="latch" value="true"/>
     </node>
-
+    <node pkg="rviz" type="rviz" name="" args="-d $(find node_edge_map_editor)/launch/map_editor.rviz"/>
 </launch>
