@@ -1,20 +1,19 @@
 #!/usr/bin/env python3
-#! -*- coding: utf-8 -*-
+
+import datetime
+import math
+import sys
+import threading
+from subprocess import PIPE, Popen
 
 import numpy as np
-import math
-import threading
-import yaml
-import sys
-import datetime
-from subprocess import Popen, PIPE
-
 import rospy
+import yaml
 from geometry_msgs.msg import PoseStamped, Quaternion
 from tf.transformations import euler_from_quaternion
 
-
 np.set_printoptions(linewidth=200)
+
 
 class CleaningPathEditor:
     def __init__(self) -> None:
@@ -26,13 +25,19 @@ class CleaningPathEditor:
             rospy.logwarn("No path file specified. Shutting down...")
             rospy.signal_shutdown("No path file specified")
             sys.exit(1)
-        self.backup_file = rospy.get_param("~BACKUP_FILE", self.map_file + ".bak")
-        self.pose_topic = rospy.get_param("~POSE_TOPIC", "/move_base_simple/goal") # rviz 2DNavGoal
+        self.backup_file = rospy.get_param(
+            "~BACKUP_FILE", self.map_file + ".bak"
+        )
+        self.pose_topic = rospy.get_param(
+            "~POSE_TOPIC", "/move_base_simple/goal"
+        )  # rviz 2DNavGoal
 
         self.has_saved = False
         self.update_pose = True
         self.pose = PoseStamped()
-        self.pose_sub = rospy.Subscriber(self.pose_topic, PoseStamped, self.pose_callback)
+        self.pose_sub = rospy.Subscriber(
+            self.pose_topic, PoseStamped, self.pose_callback
+        )
 
         self.lock = threading.Lock()
         self.map = self.load_map_from_yaml()
@@ -55,7 +60,10 @@ class CleaningPathEditor:
             with open(self.map_file, "r") as f:
                 _map = yaml.safe_load(f)
                 for edge in _map["EDGE"]:
-                    edge["node_id"] = [int(edge["node_id"][0]), int(edge["node_id"][1])]
+                    edge["node_id"] = [
+                        int(edge["node_id"][0]),
+                        int(edge["node_id"][1]),
+                    ]
                 return _map
 
         except Exception as e:
@@ -72,7 +80,7 @@ class CleaningPathEditor:
         nodelist = nodelist.decode()
         nodelist = nodelist.split()
         for nd in nodelist:
-            if not nd.find('node_edge_map_manager') == -1:
+            if not nd.find("node_edge_map_manager") == -1:
                 return True
         return False
 
@@ -123,7 +131,9 @@ class CleaningPathEditor:
             if self.update_pose:
                 _x = round(self.pose.pose.position.x, 3)
                 _y = round(self.pose.pose.position.y, 3)
-                _direction = self.get_direction_from_quaternion(self.pose.pose.orientation)
+                _direction = self.get_direction_from_quaternion(
+                    self.pose.pose.orientation
+                )
                 return _direction, _x, _y
             else:
                 if counter == 0:
@@ -142,32 +152,52 @@ class CleaningPathEditor:
             index += 1
         return -1
 
-    def get_distance_from_point_to_line(self, _x0: float, _y0: float, _x1: float, _y1: float, _x2: float, _y2: float) -> float:
+    def get_distance_from_point_to_line(
+        self,
+        _x0: float,
+        _y0: float,
+        _x1: float,
+        _y1: float,
+        _x2: float,
+        _y2: float,
+    ) -> float:
         dx21 = _x2 - _x1
         dy21 = _y2 - _y1
         dx10 = _x1 - _x0
         dy10 = _y1 - _y0
         dx20 = _x2 - _x0
         dy20 = _y2 - _y0
-        t = -( dx21*dx10 + dy21*dy10)
+        t = -(dx21 * dx10 + dy21 * dy10)
 
         if t <= 0:
-            return math.sqrt(dx10*dx10 + dy10*dy10)
-        elif t >= dx21*dx21 + dy21*dy21:
-            return math.sqrt(dx20*dx20 + dy20*dy20)
+            return math.sqrt(dx10 * dx10 + dy10 * dy10)
+        elif t >= dx21 * dx21 + dy21 * dy21:
+            return math.sqrt(dx20 * dx20 + dy20 * dy20)
         else:
-            return math.sqrt((dx21*dy10 - dy21*dx10)**2 / (dx21*dx21 + dy21*dy21))
+            return math.sqrt(
+                (dx21 * dy10 - dy21 * dx10) ** 2 / (dx21 * dx21 + dy21 * dy21)
+            )
 
     def get_edge_id_from_pose(self, _x0: float, _y0: float) -> int:
         nearest_edge_id = -1
         nearest_edge_distance = float(100)
         _count = 0
         for edge in self.map["EDGE"]:
-            _x1 = self.map["NODE"][self.get_index_from_id(edge["node_id"][0])]["point"]["x"]
-            _y1 = self.map["NODE"][self.get_index_from_id(edge["node_id"][0])]["point"]["y"]
-            _x2 = self.map["NODE"][self.get_index_from_id(edge["node_id"][1])]["point"]["x"]
-            _y2 = self.map["NODE"][self.get_index_from_id(edge["node_id"][1])]["point"]["y"]
-            _distance = self.get_distance_from_point_to_line(_x0, _y0, _x1, _y1, _x2, _y2)
+            _x1 = self.map["NODE"][self.get_index_from_id(edge["node_id"][0])][
+                "point"
+            ]["x"]
+            _y1 = self.map["NODE"][self.get_index_from_id(edge["node_id"][0])][
+                "point"
+            ]["y"]
+            _x2 = self.map["NODE"][self.get_index_from_id(edge["node_id"][1])][
+                "point"
+            ]["x"]
+            _y2 = self.map["NODE"][self.get_index_from_id(edge["node_id"][1])][
+                "point"
+            ]["y"]
+            _distance = self.get_distance_from_point_to_line(
+                _x0, _y0, _x1, _y1, _x2, _y2
+            )
             if _distance < nearest_edge_distance:
                 nearest_edge_distance = _distance
                 nearest_edge_id = _count
@@ -176,7 +206,9 @@ class CleaningPathEditor:
 
         return nearest_edge_id
 
-    def set_node(self, _id: int, _type: str, _label: str, _x: float, _y: float) -> dict:
+    def set_node(
+        self, _id: int, _type: str, _label: str, _x: float, _y: float
+    ) -> dict:
         _point = {"x": _x, "y": _y}
         _node = {"id": _id, "type": _type, "point": _point, "label": _label}
         return _node
@@ -198,7 +230,6 @@ class CleaningPathEditor:
         # _edge = {"command": _command, "start_node_id": _start_node_id, "end_node_id": _end_node_id, "skippable": _skippable}
         return _edge
 
-
     def add_node(self) -> None:
         print("=== Add Node ===")
         _loop = True
@@ -207,12 +238,16 @@ class CleaningPathEditor:
             if self.node_id_existing(_id):
                 print("Entered id is already exists. Please enter another.")
             else:
-                _type = input("Please enter the new node type(Default is intersection). : " )
-                _label = input("Please enter the new node label(If you don't wanna label, just press enter).: " )
+                _type = input(
+                    "Please enter the new node type(Default is intersection). : "
+                )
+                _label = input(
+                    "Please enter the new node label(If you don't wanna label, just press enter).: "
+                )
                 _direction, _x, _y = self.get_pose_from_rviz()
-                if _type == '':
-                   _type = "intersection"
-                if _label == None or _label == '':
+                if _type == "":
+                    _type = "intersection"
+                if _label == None or _label == "":
                     _label = ""
                 if _x == None:
                     print("Cannot get pose.")
@@ -233,21 +268,28 @@ class CleaningPathEditor:
                 print("Entered id is not exists. Please enter another.")
             else:
                 _direction, _x, _y = self.get_pose_from_rviz()
-                _type = input("Please enter the new node type(If you don't wanna change, just press enter). : " )
-                _label = input("Please enter the new node label(If you don't wanna change, just press enter).: " )
+                _type = input(
+                    "Please enter the new node type(If you don't wanna change, just press enter). : "
+                )
+                _label = input(
+                    "Please enter the new node label(If you don't wanna change, just press enter).: "
+                )
                 for node in self.map["NODE"]:
                     if node["id"] == _id:
-                        if _type == '' or _type == None:
+                        if _type == "" or _type == None:
                             node["type"] = node["type"]
                         else:
                             node["type"] = _type
-                        if _label == '' or _label == None:
+                        if _label == "" or _label == None:
                             node["label"] = node["label"]
                         else:
                             node["label"] = _label
                         node["point"]["x"] = _x
                         node["point"]["y"] = _y
-                        print("Node {} has been moved to:\n".format(_id) + str(node))
+                        print(
+                            "Node {} has been moved to:\n".format(_id)
+                            + str(node)
+                        )
                         self.has_saved = False
                         break
             _loop = self.ask_continue("moving nodes")
@@ -261,7 +303,10 @@ class CleaningPathEditor:
                 print("Entered id is not exists. Please enter another.")
             else:
                 _index = self.get_index_from_id(_id)
-                print("Node {} has been deleted:".format(_id) + str(self.map["NODE"].pop(_index)))
+                print(
+                    "Node {} has been deleted:".format(_id)
+                    + str(self.map["NODE"].pop(_index))
+                )
                 self.has_saved = False
 
             _loop = self.ask_continue("deleting nodes")
@@ -271,7 +316,11 @@ class CleaningPathEditor:
         _loop = True
         while _loop:
             self.visualize_edge()
-            _id = int(input("Where do want to instert the new edge? To insert it last, enter -1: "))
+            _id = int(
+                input(
+                    "Where do want to instert the new edge? To insert it last, enter -1: "
+                )
+            )
             if (_id >= len(self.map["EDGE"])) or (_id < -1):
                 print("Entered id is not valid. Please enter another.")
             else:
@@ -320,7 +369,10 @@ class CleaningPathEditor:
             if _id == -1:
                 print("Cannot find the edge")
             else:
-                print("Edge {} has been deleted:\n".format(_id) + str(self.map["EDGE"].pop(_id)))
+                print(
+                    "Edge {} has been deleted:\n".format(_id)
+                    + str(self.map["EDGE"].pop(_id))
+                )
                 self.has_saved = False
 
             _loop = self.ask_continue("deleting edges")
@@ -360,7 +412,9 @@ class CleaningPathEditor:
             print("reloaded map")
             self.visualize_map()
         else:
-            yn = input("You have not saved the path. Are you sure to reload the map? (y/n): ")
+            yn = input(
+                "You have not saved the path. Are you sure to reload the map? (y/n): "
+            )
             if yn == "y" or yn == "Y":
                 self.map = self.load_map_from_yaml()
                 print("reloaded map \n")
@@ -383,7 +437,7 @@ class CleaningPathEditor:
         rate = rospy.Rate(1)
         self.visualize_map()
         while not rospy.is_shutdown():
-            if  self.has_navigation_manager_node():
+            if self.has_navigation_manager_node():
                 rospy.loginfo_once("Found navigation manager")
                 cmd = input("Please enter the command.(h for help): ")
                 if cmd == "an":
@@ -412,16 +466,21 @@ class CleaningPathEditor:
                         rospy.signal_shutdown("quit")
                         sys.exit(0)
                     else:
-                        yn = input("You have not saved the path. Are you sure to quit? [y/n]")
+                        yn = input(
+                            "You have not saved the path. Are you sure to quit? [y/n]"
+                        )
                         if yn == "y" or yn == "Y":
                             rospy.signal_shutdown("quit")
                             sys.exit(0)
             else:
-                rospy.logwarn("Waiting for node_edge_map_manager node to start...")
+                rospy.logwarn(
+                    "Waiting for node_edge_map_manager node to start..."
+                )
                 rate.sleep()
                 continue
 
         rate.sleep()
+
 
 if __name__ == "__main__":
     editor = CleaningPathEditor()
